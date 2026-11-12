@@ -206,6 +206,7 @@ local T = {}
 local function derive(th)
 T.bg, T.surface, T.text, T.accent, T.accent2 = th.bg, th.surface, th.text, th.accent, th.accent2
 T.navIcon = th.navIcon
+T.flat = th.flat == true
 T.muted = th.text:Lerp(th.bg, 0.42)
 T.faint = th.text:Lerp(th.bg, 0.66)
 T.line = th.bg:Lerp(th.text, 0.11)
@@ -216,6 +217,14 @@ T.hover = th.surface:Lerp(th.text, 0.07)
 T.accentMix = th.accent:Lerp(th.accent2, 0.45)
 local a = th.accent
 T.onAccent = (0.299 * a.R + 0.587 * a.G + 0.114 * a.B) > 0.6 and th.bg:Lerp(Color3.new(0, 0, 0), 0.6) or Color3.new(1, 1, 1)
+local function on(c)
+return (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) > 0.6 and th.bg:Lerp(Color3.new(0, 0, 0), 0.6) or Color3.new(1, 1, 1)
+end
+T.tgA = th.btnA or th.accent
+T.tgB = th.flat and T.tgA or (th.btnB or th.accent2)
+T.tgMix = T.tgA:Lerp(T.tgB, 0.45)
+T.tgOn = on(T.tgA)
+T.slA, T.slB, T.slMix = T.tgA, T.tgB, T.tgMix
 T.ok = hex("#4ade80")
 T.warn = hex("#fbbf24")
 T.err = hex("#f87171")
@@ -302,6 +311,9 @@ return function(t)
 local cols = {}
 for i, k in ipairs(keys) do
 cols[i] = (type(k) == "string" and t[k]) or (type(k) == "function" and k(t)) or k
+end
+if t.flat then
+return seq(cols[1])
 end
 return seq(table.unpack(cols))
 end
@@ -476,7 +488,7 @@ FS.saveJson("BingerUI/prefs.json", self.Prefs)
 end
 end)
 end
-local CUSTOM_KEYS = { "bg", "surface", "text", "accent", "accent2", "navIcon" }
+local CUSTOM_KEYS = { "bg", "surface", "text", "accent", "accent2", "navIcon", "btnA", "btnB" }
 function Binger:_themeData()
 local P = self.Prefs
 local base = THEMES[1]
@@ -495,6 +507,7 @@ end
 end
 if P.flat then
 copy.accent2 = copy.accent
+copy.flat = true
 end
 return copy, base
 end
@@ -944,6 +957,9 @@ New("UIGradient", {
 Rotation = 38,
 Theme = {
 Color = function(t)
+if t.flat then
+return ColorSequence.new(t.lineStrong)
+end
 return ColorSequence.new({
 ColorSequenceKeypoint.new(0, t.accent),
 ColorSequenceKeypoint.new(0.32, t.lineStrong),
@@ -965,8 +981,13 @@ Transparency = nseq(0, a, 0.5, 1, 1, 1),
 Parent = f,
 })
 local tw = Svc.TweenService:Create(g, TweenInfo.new(time, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Rotation = r1 })
+W._aurora = W._aurora or {}
+W._aurora[tw] = f
+f.Visible = not T.flat
 if not W.Lite then
+if not T.flat then
 tw:Play()
+end
 table.insert(W._loops, tw)
 end
 end
@@ -1328,6 +1349,16 @@ self.MainFrame = Holder
 self.Toggled = false
 end
 self._themeHooks = self._themeHooks or {}
+table.insert(self._themeHooks, function()
+for tw, f in pairs(W._aurora or {}) do
+f.Visible = not T.flat
+if T.flat then
+tw:Pause()
+elseif W.Visible and not W.Lite then
+tw:Play()
+end
+end
+end)
 task.defer(function()
 W:SetVisible(true)
 W:_glide(false)
@@ -1466,7 +1497,7 @@ end
 end
 function Window:_setLoops(on)
 for _, tw in ipairs(self._loops) do
-if on then
+if on and not (T.flat and self._aurora and self._aurora[tw]) then
 tw:Play()
 else
 tw:Pause()
@@ -1554,7 +1585,6 @@ Parent = s,
 Corner(pip, 3)
 Stroke(pip, "bg", 0, 1.5)
 local scale = New("UIScale", { Parent = s })
-L:_tooltip(s, "Open or close the menu")
 local saved = L.Prefs.buttonPos
 s.AnchorPoint = V2(0.5, 0.5)
 if type(saved) == "table" and tonumber(saved.x) and tonumber(saved.y) then
@@ -2624,7 +2654,7 @@ Corner(box, 7)
 local bs = Stroke(box, "lineStrong", 0.1)
 onFill = New("Frame", { Size = UDim2sc(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = el.Value and 0 or 1, Parent = box })
 Corner(onFill, 7)
-New("UIGradient", { Rotation = 45, Theme = { Color = grad("accent", "accentMix") }, Parent = onFill })
+New("UIGradient", { Rotation = 45, Theme = { Color = grad("tgA", "tgMix") }, Parent = onFill })
 tick = Icon("check", 15, "bg", box)
 tick.AnchorPoint = V2(0.5, 0.5)
 tick.Position = UDim2sc(0.5, 0.5)
@@ -2645,14 +2675,14 @@ Corner(sw, 12)
 local sst = Stroke(sw, "line", 0)
 onFill = New("Frame", { Size = UDim2sc(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = el.Value and 0 or 1, Parent = sw })
 Corner(onFill, 12)
-New("UIGradient", { Theme = { Color = grad("accent", "accent2") }, Parent = onFill })
+New("UIGradient", { Theme = { Color = grad("tgA", "tgB") }, Parent = onFill })
 knob = New("Frame", {
 AnchorPoint = V2(0, 0.5),
 Position = UDim2new(0, el.Value and 23 or 3, 0.5, 0),
 Size = UDim2off(18, 18),
 Theme = {
 BackgroundColor3 = function(t)
-return el.Value and t.onAccent or t.muted
+return el.Value and t.tgOn or t.muted
 end,
 },
 Parent = sw,
@@ -2750,7 +2780,7 @@ TextXAlignment = barStyle and CENTER or RIGHT,
 BackgroundTransparency = barStyle and 0.2 or 1,
 Text = "",
 LayoutOrder = 3,
-Theme = { TextColor3 = barStyle and "text" or "accent", BackgroundColor3 = "field" },
+Theme = { TextColor3 = barStyle and "text" or "slA", BackgroundColor3 = "field" },
 Parent = el.Inner,
 })
 if barStyle then
@@ -2767,7 +2797,7 @@ Corner(trackHit, 8)
 Stroke(trackHit, "line")
 fill = New("Frame", { Size = UDim2sc(rel(el.Value), 1), BackgroundColor3 = Color3.new(1, 1, 1), Parent = trackHit })
 Corner(fill, 8)
-New("UIGradient", { Theme = { Color = grad("accent", "accent2") }, Transparency = nseq(0, 0.1, 1, 0.25), Parent = fill })
+New("UIGradient", { Theme = { Color = grad("slA", "slB") }, Transparency = nseq(0, 0.1, 1, 0.25), Parent = fill })
 barText = Label({ Text = "", Font = F.semi, Size = 13, AlignX = CENTER, Dim = UDim2sc(1, 1), Z = 2, Parent = trackHit })
 else
 trackHit = New("Frame", { Size = UDim2new(1, 0, 0, 18), BackgroundTransparency = 1, LayoutOrder = 2, Parent = el.Stack })
@@ -2775,11 +2805,11 @@ local track = New("Frame", { AnchorPoint = V2(0, 0.5), Position = UDim2new(0, 0,
 Corner(track, 3)
 fill = New("Frame", { Size = UDim2sc(rel(el.Value), 1), BackgroundColor3 = Color3.new(1, 1, 1), Parent = track })
 Corner(fill, 3)
-New("UIGradient", { Theme = { Color = grad("accent", "accentMix") }, Parent = fill })
-knobGlow = New("ImageLabel", { BackgroundTransparency = 1, Image = Assets.glow or "", ImageTransparency = 0.55, AnchorPoint = V2(0.5, 0.5), Position = UDim2new(rel(el.Value), 0, 0.5, 0), Size = UDim2off(34, 34), Theme = { ImageColor3 = "accent" }, Parent = trackHit })
+New("UIGradient", { Theme = { Color = grad("slA", "slMix") }, Parent = fill })
+knobGlow = New("ImageLabel", { BackgroundTransparency = 1, Image = Assets.glow or "", ImageTransparency = 0.55, AnchorPoint = V2(0.5, 0.5), Position = UDim2new(rel(el.Value), 0, 0.5, 0), Size = UDim2off(34, 34), Theme = { ImageColor3 = "slA" }, Parent = trackHit })
 knob = New("Frame", { AnchorPoint = V2(0.5, 0.5), Position = UDim2new(rel(el.Value), 0, 0.5, 0), Size = UDim2off(16, 16), Theme = { BackgroundColor3 = "white" }, Parent = trackHit })
 Corner(knob, 8)
-Stroke(knob, "accent", 0, 3)
+Stroke(knob, "slA", 0, 3)
 knobScale = New("UIScale", { Parent = knob })
 end
 local presetBtns = {}
@@ -4016,7 +4046,13 @@ end })
 local navC = box:ColorPicker({ Name = "Menu icons", Description = "One colour for every sidebar icon. Reset colours turns it off.", Default = T.navIcon or T.accent, Callback = function(c)
 Binger:SetAccent("navIcon", c)
 end })
-box:Toggle({ Name = "Gradient buttons", Description = "Off: buttons and toggles use one solid colour (Accent).", Default = not P.flat, Callback = function(v)
+local tgC = box:ColorPicker({ Name = "Button accent", Description = "Toggles and sliders. With Gradients off they use only this colour.", Default = T.tgA, Callback = function(c)
+Binger:SetAccent("btnA", c)
+end })
+local slC = box:ColorPicker({ Name = "Button second accent", Description = "Other end of the toggle and slider gradient.", Default = T.tgB, Callback = function(c)
+Binger:SetAccent("btnB", c)
+end })
+box:Toggle({ Name = "Gradients", Description = "Off: no gradients anywhere, every coloured part is one solid colour, and the moving background stops. Lighter on weak devices.", Default = not P.flat, Callback = function(v)
 if P.flat == not v then
 return
 end
@@ -4051,6 +4087,8 @@ a2:Set(T.accent2, true)
 bgC:Set(T.bg, true)
 pnC:Set(T.surface, true)
 navC:Set(T.navIcon or T.accent, true)
+tgC:Set(T.tgA, true)
+slC:Set(T.tgB, true)
 end)
 local sizeSlider
 sizeSlider = box:Slider({ Name = "Menu size", Min = 70, Max = 140, Step = 5, Default = math.floor((tonumber(P.scale) or 1) * 100 + 0.5), Suffix = "%", Presets = { 80, 100, 120 }, Callback = function(v)
@@ -4983,7 +5021,13 @@ end })
 local navC = look:ColorPicker({ Name = "Menu icons", Description = "One colour for every sidebar icon. Reset colours turns it off.", Default = T.navIcon or T.accent, Callback = function(c)
 L:SetAccent("navIcon", c)
 end })
-look:Toggle({ Name = "Gradient buttons", Description = "Off: buttons and toggles use one solid colour (Accent).", Default = not P.flat, Callback = function(v)
+local tgC = look:ColorPicker({ Name = "Button accent", Description = "Toggles and sliders. With Gradients off they use only this colour.", Default = T.tgA, Callback = function(c)
+L:SetAccent("btnA", c)
+end })
+local slC = look:ColorPicker({ Name = "Button second accent", Description = "Other end of the toggle and slider gradient.", Default = T.tgB, Callback = function(c)
+L:SetAccent("btnB", c)
+end })
+look:Toggle({ Name = "Gradients", Description = "Off: no gradients anywhere, every coloured part is one solid colour, and the moving background stops. Lighter on weak devices.", Default = not P.flat, Callback = function(v)
 if P.flat == not v then
 return
 end
@@ -5018,6 +5062,8 @@ ac2:Set(T.accent2, true)
 bgC:Set(T.bg, true)
 pnC:Set(T.surface, true)
 navC:Set(T.navIcon or T.accent, true)
+tgC:Set(T.tgA, true)
+slC:Set(T.tgB, true)
 end)
 local fx = tab:Section({ Name = "Look and feel", Icon = "sparkles", Side = "Left" })
 fx:Slider({ Name = "Window opacity", Min = 60, Max = 100, Default = math.floor((1 - (tonumber(P.opacity) or 0.04)) * 100 + 0.5), Suffix = "%", Callback = function(v)
