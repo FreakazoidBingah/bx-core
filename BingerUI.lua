@@ -993,7 +993,12 @@ end
 end
 aurora("accent2", 28, 62, 0.74, 15)
 aurora("accent", 208, 242, 0.86, 21)
-W.BgImage = New("ImageLabel", { Name = "BgImage", BackgroundTransparency = 1, Size = UDim2sc(1, 1), ScaleType = Enum.ScaleType.Crop, Visible = false, Parent = Main })
+W.BgImage = New("ImageLabel", { Name = "BgImage", BackgroundTransparency = 1, Size = UDim2sc(1, 1), ScaleType = Enum.ScaleType.Stretch, Visible = false, Parent = Main })
+Main:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+if W.BgImage.Visible then
+W:_bgImage()
+end
+end)
 Corner(W.BgImage, 14)
 W:_bgImage()
 W._side = SIDE
@@ -1479,6 +1484,22 @@ self:_glide(false)
 end)
 self.Lib:_blur(v)
 end
+local THUMB_W, THUMB_H = 768, 432
+local function cropRect(crop, aspect)
+crop = type(crop) == "table" and crop or {}
+local z = math.clamp(tonumber(crop.z) or 1, 1, 4)
+local rw, rh
+if aspect >= THUMB_W / THUMB_H then
+rw, rh = THUMB_W, THUMB_W / aspect
+else
+rw, rh = THUMB_H * aspect, THUMB_H
+end
+rw, rh = rw / z, rh / z
+local cx = math.clamp((tonumber(crop.x) or 0.5) * THUMB_W, rw / 2, THUMB_W - rw / 2)
+local cy = math.clamp((tonumber(crop.y) or 0.5) * THUMB_H, rh / 2, THUMB_H - rh / 2)
+return cx - rw / 2, cy - rh / 2, rw, rh
+end
+Window._cropRect = cropRect
 function Window:_bgImage()
 local P = self.Lib.Prefs
 local id = tonumber(P.bgImage)
@@ -1487,13 +1508,93 @@ if not img then
 return
 end
 if id and id > 0 then
-img.Image = ("rbxthumb://type=Asset&id=%d&w=768&h=432"):format(id)
+img.Image = ("rbxthumb://type=Asset&id=%d&w=%d&h=%d"):format(id, THUMB_W, THUMB_H)
+local s = self.Main.AbsoluteSize
+local x, y, w, h = cropRect(P.bgCrop, s.Y > 0 and s.X / s.Y or 1.6)
+img.ImageRectOffset, img.ImageRectSize = V2(x, y), V2(w, h)
 img.ImageTransparency = 1 - math.clamp(tonumber(P.bgImageLight) or 0.3, 0.05, 1)
 img.Visible = true
 else
 img.Visible = false
 img.Image = ""
 end
+end
+function Window:EditBgImage()
+local W, L = self, self.Lib
+local P = L.Prefs
+local id = tonumber(P.bgImage)
+if not id then
+L:Notify({ Title = "Background picture", Content = "Paste an image id first.", Duration = 3 })
+return
+end
+local src = ("rbxthumb://type=Asset&id=%d&w=%d&h=%d"):format(id, THUMB_W, THUMB_H)
+local crop = { x = 0.5, y = 0.5, z = 1 }
+if type(P.bgCrop) == "table" then
+crop.x, crop.y, crop.z = tonumber(P.bgCrop.x) or 0.5, tonumber(P.bgCrop.y) or 0.5, tonumber(P.bgCrop.z) or 1
+end
+local PW, PH = 352, 198
+local frame, lit
+local function paint()
+if not frame then
+return
+end
+local s = W.Main.AbsoluteSize
+local x, y, w, h = cropRect(crop, s.Y > 0 and s.X / s.Y or 1.6)
+crop.x, crop.y = (x + w / 2) / THUMB_W, (y + h / 2) / THUMB_H
+frame.Position = UDim2off(x / THUMB_W * PW, y / THUMB_H * PH)
+frame.Size = UDim2off(w / THUMB_W * PW, h / THUMB_H * PH)
+lit.ImageRectOffset, lit.ImageRectSize = V2(x, y), V2(w, h)
+end
+W:Dialog({
+Title = "Adjust picture",
+Icon = "image",
+Width = 400,
+CloseOnOutside = false,
+Raw = function(holder)
+local box = New("Frame", { Size = UDim2off(PW, PH), Theme = { BackgroundColor3 = "field" }, ClipsDescendants = true, LayoutOrder = 1, ZIndex = 12, Parent = holder })
+Corner(box, 8)
+New("ImageLabel", { BackgroundTransparency = 1, Image = src, ImageTransparency = 0.7, Size = UDim2sc(1, 1), ZIndex = 12, Parent = box })
+frame = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundTransparency = 1, ZIndex = 13, Parent = box })
+lit = New("ImageLabel", { BackgroundTransparency = 1, Image = src, Size = UDim2sc(1, 1), ZIndex = 13, Parent = frame })
+local st = Stroke(frame, "white", 0, 2)
+st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+frame.InputBegan:Connect(function(input)
+if not (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+return
+end
+local start = L:_pointer(input)
+local x0, y0 = crop.x, crop.y
+local scale = box.AbsoluteSize.X / PW
+L:_beginDrag(input, function(p)
+local d = (p - start) / math.max(scale, 0.01)
+crop.x = x0 + d.X / PW
+crop.y = y0 + d.Y / PH
+paint()
+end)
+end)
+Label({ Text = "Drag the frame to pick the part of the picture the menu shows.", Size = 12, Color = "muted", Dim = UDim2new(1, 0, 0, 0), Auto = AutoY, Wrap = true, Order = 2, Z = 12, Parent = holder })
+end,
+Build = function(c)
+c:Slider({ Name = "Zoom", Min = 100, Max = 400, Step = 5, Default = math.floor(crop.z * 100 + 0.5), Suffix = "%", Callback = function(v)
+crop.z = v / 100
+paint()
+end })
+end,
+Buttons = {
+{ Name = "Reset", Callback = function()
+P.bgCrop = nil
+W:_bgImage()
+L:SavePrefs()
+end },
+{ Name = "Cancel" },
+{ Name = "Apply", Style = "primary", Callback = function()
+P.bgCrop = { x = crop.x, y = crop.y, z = crop.z }
+W:_bgImage()
+L:SavePrefs()
+end },
+},
+})
+paint()
 end
 function Window:_setLoops(on)
 for _, tw in ipairs(self._loops) do
@@ -1809,7 +1910,7 @@ Label({ Text = o.Title or "Are you sure?", Font = F.display, Size = 22, Pos = UD
 if o.Content then
 Label({ Text = o.Content, Size = 13, Color = "muted", Dim = UDim2new(1, 0, 0, 0), Auto = AutoY, Wrap = true, Order = 2, Parent = card })
 end
-local holder = New("Frame", { BackgroundTransparency = 1, Size = UDim2new(1, 0, 0, 0), AutomaticSize = AutoY, LayoutOrder = 3, Visible = o.Build ~= nil, Parent = card })
+local holder = New("Frame", { BackgroundTransparency = 1, Size = UDim2new(1, 0, 0, 0), AutomaticSize = AutoY, LayoutOrder = 3, Visible = o.Build ~= nil or o.Raw ~= nil, Parent = card })
 List(holder, nil, 11)
 local inner = Container._new(self, nil, holder, nil)
 local d = { Container = inner }
@@ -1828,6 +1929,9 @@ forget(card)
 dim:Destroy()
 card:Destroy()
 end)
+end
+if o.Raw then
+o.Raw(holder, d)
 end
 if o.Build then
 o.Build(inner)
@@ -4061,11 +4165,23 @@ Binger:SetTheme(P.theme, true)
 end })
 box:Input({ Name = "Background picture", Description = "Roblox image or decal id. Empty = none.", Default = P.bgImage and tostring(P.bgImage) or "", Placeholder = "image id", Callback = function(v)
 local id = tonumber((tostring(v):match("%d+")))
-P.bgImage = (id and id > 0) and id or nil
+local new = (id and id > 0) and id or nil
+if new ~= P.bgImage then
+P.bgCrop = nil
+end
+P.bgImage = new
 if w then
 w:_bgImage()
+if new then
+w:EditBgImage()
+end
 end
 Binger:SavePrefs()
+end })
+box:Button({ Name = "Adjust picture", Icon = "image", Callback = function()
+if w then
+w:EditBgImage()
+end
 end })
 local picSlider
 picSlider = box:Slider({ Name = "Picture brightness", Min = 10, Max = 100, Step = 5, Default = math.floor((tonumber(P.bgImageLight) or 0.3) * 100 + 0.5), Suffix = "%", Callback = function(v)
@@ -5036,11 +5152,23 @@ L:SetTheme(P.theme, true)
 end })
 look:Input({ Name = "Background picture", Description = "Roblox image or decal id. Empty = none.", Default = P.bgImage and tostring(P.bgImage) or "", Placeholder = "image id", Callback = function(v)
 local id = tonumber((tostring(v):match("%d+")))
-P.bgImage = (id and id > 0) and id or nil
+local new = (id and id > 0) and id or nil
+if new ~= P.bgImage then
+P.bgCrop = nil
+end
+P.bgImage = new
 if W then
 W:_bgImage()
+if new then
+W:EditBgImage()
+end
 end
 L:SavePrefs()
+end })
+look:Button({ Name = "Adjust picture", Icon = "image", Callback = function()
+if W then
+W:EditBgImage()
+end
 end })
 local picSlider
 picSlider = look:Slider({ Name = "Picture brightness", Min = 10, Max = 100, Step = 5, Default = math.floor((tonumber(P.bgImageLight) or 0.3) * 100 + 0.5), Suffix = "%", Callback = function(v)
