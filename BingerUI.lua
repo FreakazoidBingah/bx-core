@@ -197,11 +197,15 @@ local THEMES = {
 { Id = "sakura", Name = "Sakura Night", bg = hex("#0d0912"), surface = hex("#1b1424"), text = hex("#fbeef6"), accent = hex("#ff8fc4"), accent2 = hex("#7b5cff") },
 { Id = "neon", Name = "Neon Tokyo", bg = hex("#05060d"), surface = hex("#0e1222"), text = hex("#e9f6ff"), accent = hex("#2ef2ff"), accent2 = hex("#ff2bd6") },
 { Id = "moon", Name = "Moonlit Shrine", bg = hex("#070b12"), surface = hex("#111a28"), text = hex("#e8eef7"), accent = hex("#9fd4ff"), accent2 = hex("#ff6b6b") },
+{ Id = "black", Name = "Pure Black", bg = hex("#000000"), surface = hex("#0b0b0c"), text = hex("#ececec"), accent = hex("#f2f2f2"), accent2 = hex("#7c7c80") },
+{ Id = "storm", Name = "Stormy Night", bg = hex("#080b10"), surface = hex("#131a23"), text = hex("#dfe7ef"), accent = hex("#7fa8d1"), accent2 = hex("#46566b") },
+{ Id = "galaxy", Name = "Galaxy", bg = hex("#06030e"), surface = hex("#130b25"), text = hex("#efe9ff"), accent = hex("#a86bff"), accent2 = hex("#3f8cff") },
 }
 Binger.Themes = THEMES
 local T = {}
 local function derive(th)
 T.bg, T.surface, T.text, T.accent, T.accent2 = th.bg, th.surface, th.text, th.accent, th.accent2
+T.navIcon = th.navIcon
 T.muted = th.text:Lerp(th.bg, 0.42)
 T.faint = th.text:Lerp(th.bg, 0.66)
 T.line = th.bg:Lerp(th.text, 0.11)
@@ -210,6 +214,8 @@ T.panel = th.bg:Lerp(th.surface, 0.9)
 T.field = th.bg:Lerp(th.surface, 0.35)
 T.hover = th.surface:Lerp(th.text, 0.07)
 T.accentMix = th.accent:Lerp(th.accent2, 0.45)
+local a = th.accent
+T.onAccent = (0.299 * a.R + 0.587 * a.G + 0.114 * a.B) > 0.6 and th.bg:Lerp(Color3.new(0, 0, 0), 0.6) or Color3.new(1, 1, 1)
 T.ok = hex("#4ade80")
 T.warn = hex("#fbbf24")
 T.err = hex("#f87171")
@@ -470,6 +476,7 @@ FS.saveJson("BingerUI/prefs.json", self.Prefs)
 end
 end)
 end
+local CUSTOM_KEYS = { "bg", "surface", "text", "accent", "accent2", "navIcon" }
 function Binger:_themeData()
 local P = self.Prefs
 local base = THEMES[1]
@@ -479,22 +486,24 @@ base = th
 end
 end
 local copy = { bg = base.bg, surface = base.surface, text = base.text, accent = base.accent, accent2 = base.accent2 }
-if P.accent then
+for _, k in ipairs(CUSTOM_KEYS) do
+if type(P[k]) == "string" then
 pcall(function()
-copy.accent = hex(P.accent)
+copy[k] = hex(P[k])
 end)
 end
-if P.accent2 then
-pcall(function()
-copy.accent2 = hex(P.accent2)
-end)
+end
+if P.flat then
+copy.accent2 = copy.accent
 end
 return copy, base
 end
 function Binger:SetTheme(id, keepCustom)
 self.Prefs.theme = id or self.Prefs.theme
 if not keepCustom then
-self.Prefs.accent, self.Prefs.accent2 = nil, nil
+for _, k in ipairs(CUSTOM_KEYS) do
+self.Prefs[k] = nil
+end
 end
 derive((self:_themeData()))
 for obj in pairs(Reg) do
@@ -634,6 +643,7 @@ Binger:_g(Svc.UserInputService.InputEnded, function(input)
 if Binger._drag and isPress(input) then
 local d = Binger._drag
 Binger._drag = nil
+Binger._dragEndAt = os.clock()
 if d.ended then
 d.ended()
 end
@@ -962,6 +972,9 @@ end
 end
 aurora("accent2", 28, 62, 0.74, 15)
 aurora("accent", 208, 242, 0.86, 21)
+W.BgImage = New("ImageLabel", { Name = "BgImage", BackgroundTransparency = 1, Size = UDim2sc(1, 1), ScaleType = Enum.ScaleType.Crop, Visible = false, Parent = Main })
+Corner(W.BgImage, 14)
+W:_bgImage()
 W._side = SIDE
 local SideTint = New("Frame", { Name = "SideTint", Size = UDim2sc(1, 1), Theme = { BackgroundColor3 = "surface" }, Parent = Main })
 Corner(SideTint, 14)
@@ -1253,6 +1266,17 @@ end
 local Overlay = New("Frame", { Name = "Overlay", BackgroundTransparency = 1, Size = UDim2sc(1, 1), ZIndex = 50, Parent = Main })
 local Catcher = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2sc(1, 1), Visible = false, Parent = Overlay })
 Catcher.MouseButton1Click:Connect(function()
+if os.clock() - (W.Lib._dragEndAt or 0) < 0.2 then
+return
+end
+local p = W._pop
+if p and p.Frame and p.Frame.Parent then
+local m = W.Lib:_pointer(nil)
+local a, z = p.Frame.AbsolutePosition, p.Frame.AbsoluteSize
+if m.X >= a.X and m.X <= a.X + z.X and m.Y >= a.Y and m.Y <= a.Y + z.Y then
+return
+end
+end
 W:_closePopup()
 end)
 W.Overlay, W.Catcher = Overlay, Catcher
@@ -1423,6 +1447,22 @@ end
 self:_glide(false)
 end)
 self.Lib:_blur(v)
+end
+function Window:_bgImage()
+local P = self.Lib.Prefs
+local id = tonumber(P.bgImage)
+local img = self.BgImage
+if not img then
+return
+end
+if id and id > 0 then
+img.Image = ("rbxthumb://type=Asset&id=%d&w=768&h=432"):format(id)
+img.ImageTransparency = 1 - math.clamp(tonumber(P.bgImageLight) or 0.3, 0.05, 1)
+img.Visible = true
+else
+img.Visible = false
+img.Image = ""
+end
 end
 function Window:_setLoops(on)
 for _, tw in ipairs(self._loops) do
@@ -1668,6 +1708,7 @@ local up = rel.Y + ah + 6 + height > ovs.Y - 8
 local y = up and (rel.Y - 6) or (rel.Y + ah + 6)
 local pop = New("Frame", {
 Name = "Popup",
+Active = true,
 AnchorPoint = V2(0, up and 1 or 0),
 Position = UDim2off(x, y),
 Size = UDim2off(width, 0),
@@ -1844,12 +1885,14 @@ Reg[lb].TextColor3 = function(t)
 return W.Current == tab and t.text or t.muted
 end
 Reg[ic].ImageColor3 = function(t)
-return W.Current == tab and t.accent or t.muted
+return t.navIcon or (W.Current == tab and t.accent or t.muted)
 end
 hover(btn, function()
 if W.Current ~= tab then
 tween(lb, { TextColor3 = T.text }, 0.15)
+if not T.navIcon then
 tween(ic, { ImageColor3 = T.text }, 0.15)
+end
 end
 end, function()
 refresh(lb, 0.2)
@@ -2609,7 +2652,7 @@ Position = UDim2new(0, el.Value and 23 or 3, 0.5, 0),
 Size = UDim2off(18, 18),
 Theme = {
 BackgroundColor3 = function(t)
-return el.Value and t.white or t.muted
+return el.Value and t.onAccent or t.muted
 end,
 },
 Parent = sw,
@@ -3448,29 +3491,41 @@ if not skipHex then
 hexBox.Text = "#" .. el.Value:ToHex():upper()
 end
 end
+local settle = 0
 local function commit()
-el:Set(Color3.fromHSV(h, s, v), false, true)
+el:Set(Color3.fromHSV(h, s, v), true, true)
 paint()
+end
+local function release()
+settle += 1
+local my = settle
+task.delay(0.35, function()
+if my == settle then
+el:_fire(el.Value)
+end
+end)
 end
 sv.InputBegan:Connect(function(input)
 if not isPress(input) then
 return
 end
+settle += 1
 Binger:_beginDrag(input, function(pt)
 local a, z = sv.AbsolutePosition, sv.AbsoluteSize
 s = math.clamp((pt.X - a.X) / z.X, 0, 1)
 v = 1 - math.clamp((pt.Y - a.Y) / z.Y, 0, 1)
 commit()
-end)
+end, release)
 end)
 hue.InputBegan:Connect(function(input)
 if not isPress(input) then
 return
 end
+settle += 1
 Binger:_beginDrag(input, function(pt)
 h = math.clamp((pt.Y - hue.AbsolutePosition.Y) / hue.AbsoluteSize.Y, 0, 0.999)
 commit()
-end)
+end, release)
 end)
 hexBox.FocusLost:Connect(function()
 local ok, c = pcall(Color3.fromHex, (hexBox.Text:gsub("#", "")))
@@ -3532,7 +3587,7 @@ Size = UDim2sc(1 / n, 1),
 ZIndex = 2,
 Theme = {
 TextColor3 = function(t)
-return el.Value == opt and t.bg or t.muted
+return el.Value == opt and t.onAccent or t.muted
 end,
 },
 Parent = track,
@@ -3586,7 +3641,7 @@ st = Stroke(btn, style == "danger" and "err" or "line", style == "danger" and 0.
 end
 local content = New("Frame", { BackgroundTransparency = 1, Size = UDim2sc(1, 1), Parent = btn })
 List(content, Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Center)
-local fg = style == "primary" and "bg" or (style == "danger" and "err" or "text")
+local fg = style == "primary" and "onAccent" or (style == "danger" and "err" or "text")
 if icon then
 Icon(icon, 16, fg, content).LayoutOrder = 1
 end
@@ -3634,7 +3689,7 @@ task.delay(2.5, function()
 if my == token and armed then
 armed = false
 lbl.Text = o.Name or "Button"
-Reg[lbl].TextColor3 = o.Style == "primary" and "bg" or (o.Style == "danger" and "err" or "text")
+Reg[lbl].TextColor3 = o.Style == "primary" and "onAccent" or (o.Style == "danger" and "err" or "text")
 refresh(lbl, 0.2)
 end
 end)
@@ -3644,7 +3699,7 @@ if armed then
 armed = false
 token += 1
 lbl.Text = o.Name or "Button"
-Reg[lbl].TextColor3 = o.Style == "primary" and "bg" or (o.Style == "danger" and "err" or "text")
+Reg[lbl].TextColor3 = o.Style == "primary" and "onAccent" or (o.Style == "danger" and "err" or "text")
 refresh(lbl, 0.2)
 end
 task.spawn(function()
@@ -3952,9 +4007,50 @@ end })
 local a2 = box:ColorPicker({ Name = "Second accent", Default = T.accent2, Callback = function(c)
 Binger:SetAccent("accent2", c)
 end })
+local bgC = box:ColorPicker({ Name = "Background", Default = T.bg, Callback = function(c)
+Binger:SetAccent("bg", c)
+end })
+local pnC = box:ColorPicker({ Name = "Panels", Default = T.surface, Callback = function(c)
+Binger:SetAccent("surface", c)
+end })
+local navC = box:ColorPicker({ Name = "Menu icons", Description = "One colour for every sidebar icon. Reset colours turns it off.", Default = T.navIcon or T.accent, Callback = function(c)
+Binger:SetAccent("navIcon", c)
+end })
+box:Toggle({ Name = "Gradient buttons", Description = "Off: buttons and toggles use one solid colour (Accent).", Default = not P.flat, Callback = function(v)
+if P.flat == not v then
+return
+end
+P.flat = not v
+Binger:SetTheme(P.theme, true)
+end })
+box:Input({ Name = "Background picture", Description = "Roblox image or decal id. Empty = none.", Default = P.bgImage and tostring(P.bgImage) or "", Placeholder = "image id", Callback = function(v)
+local id = tonumber((tostring(v):match("%d+")))
+P.bgImage = (id and id > 0) and id or nil
+if w then
+w:_bgImage()
+end
+Binger:SavePrefs()
+end })
+local picSlider
+picSlider = box:Slider({ Name = "Picture brightness", Min = 10, Max = 100, Step = 5, Default = math.floor((tonumber(P.bgImageLight) or 0.3) * 100 + 0.5), Suffix = "%", Callback = function(v)
+P.bgImageLight = v / 100
+if picSlider and picSlider.Dragging then
+return
+end
+if w then
+w:_bgImage()
+end
+Binger:SavePrefs()
+end })
+box:Button({ Name = "Reset colours", Icon = "refresh", Callback = function()
+Binger:SetTheme(P.theme)
+end })
 table.insert(Binger._themeHooks, function()
 a1:Set(T.accent, true)
 a2:Set(T.accent2, true)
+bgC:Set(T.bg, true)
+pnC:Set(T.surface, true)
+navC:Set(T.navIcon or T.accent, true)
 end)
 local sizeSlider
 sizeSlider = box:Slider({ Name = "Menu size", Min = 70, Max = 140, Step = 5, Default = math.floor((tonumber(P.scale) or 1) * 100 + 0.5), Suffix = "%", Presets = { 80, 100, 120 }, Callback = function(v)
@@ -4878,13 +4974,51 @@ end })
 local ac2 = look:ColorPicker({ Name = "Second accent", Default = T.accent2, Callback = function(c)
 L:SetAccent("accent2", c)
 end })
+local bgC = look:ColorPicker({ Name = "Background", Default = T.bg, Callback = function(c)
+L:SetAccent("bg", c)
+end })
+local pnC = look:ColorPicker({ Name = "Panels", Default = T.surface, Callback = function(c)
+L:SetAccent("surface", c)
+end })
+local navC = look:ColorPicker({ Name = "Menu icons", Description = "One colour for every sidebar icon. Reset colours turns it off.", Default = T.navIcon or T.accent, Callback = function(c)
+L:SetAccent("navIcon", c)
+end })
+look:Toggle({ Name = "Gradient buttons", Description = "Off: buttons and toggles use one solid colour (Accent).", Default = not P.flat, Callback = function(v)
+if P.flat == not v then
+return
+end
+P.flat = not v
+L:SetTheme(P.theme, true)
+end })
+look:Input({ Name = "Background picture", Description = "Roblox image or decal id. Empty = none.", Default = P.bgImage and tostring(P.bgImage) or "", Placeholder = "image id", Callback = function(v)
+local id = tonumber((tostring(v):match("%d+")))
+P.bgImage = (id and id > 0) and id or nil
+if W then
+W:_bgImage()
+end
+L:SavePrefs()
+end })
+local picSlider
+picSlider = look:Slider({ Name = "Picture brightness", Min = 10, Max = 100, Step = 5, Default = math.floor((tonumber(P.bgImageLight) or 0.3) * 100 + 0.5), Suffix = "%", Callback = function(v)
+P.bgImageLight = v / 100
+if picSlider and picSlider.Dragging then
+return
+end
+if W then
+W:_bgImage()
+end
+L:SavePrefs()
+end })
+look:Button({ Name = "Reset colours", Icon = "refresh", Callback = function()
+L:SetTheme(P.theme)
+end })
 table.insert(L._themeHooks, function()
 ac1:Set(T.accent, true)
 ac2:Set(T.accent2, true)
+bgC:Set(T.bg, true)
+pnC:Set(T.surface, true)
+navC:Set(T.navIcon or T.accent, true)
 end)
-look:Button({ Name = "Reset accent colours", Icon = "refresh", Callback = function()
-L:SetTheme(P.theme)
-end })
 local fx = tab:Section({ Name = "Look and feel", Icon = "sparkles", Side = "Left" })
 fx:Slider({ Name = "Window opacity", Min = 60, Max = 100, Default = math.floor((1 - (tonumber(P.opacity) or 0.04)) * 100 + 0.5), Suffix = "%", Callback = function(v)
 P.opacity = 1 - v / 100
