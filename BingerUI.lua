@@ -20,9 +20,10 @@ local GENV = (getgenv and getgenv()) or _G
 if type(GENV.__hh_ui_unload) == "function" then
 pcall(GENV.__hh_ui_unload)
 end
-GENV.__hh_ui_unload = function()
+Binger._hhUnload = function()
 Binger:Unload()
 end
+GENV.__hh_ui_unload = Binger._hhUnload
 local UDim2new, UDim2off, UDim2sc, V2, C3 = UDim2.new, UDim2.fromOffset, UDim2.fromScale, Vector2.new, Color3.fromRGB
 local AutoY, AutoX, AutoXY = Enum.AutomaticSize.Y, Enum.AutomaticSize.X, Enum.AutomaticSize.XY
 local LEFT, RIGHT, CENTER = Enum.TextXAlignment.Left, Enum.TextXAlignment.Right, Enum.TextXAlignment.Center
@@ -180,6 +181,7 @@ local alias = {
 ["map-pin"] = "mappin", pencil = "edit", ["sliders-horizontal"] = "sliders", sword = "sword",
 ["alert-triangle"] = "alert", ["triangle-alert"] = "alert", ["circle-help"] = "info", ["log-out"] = "power",
 ["refresh-cw"] = "refresh", ["rotate-cw"] = "refresh", ["mouse-pointer"] = "move", timer = "timer",
+sparkle = "sparkles", flag = "target", ["flag-triangle-right"] = "target",
 }
 for k, v in pairs(alias) do
 if ICON_INDEX[v] and not ICON_INDEX[k] then
@@ -2618,6 +2620,11 @@ end
 end
 end
 end
+function Element:RunChanged()
+if not self.Disabled then
+self:_fire(self.Value)
+end
+end
 function Element:SetVisible(v)
 if self.Item then
 self.Item.Hidden = not v
@@ -3125,18 +3132,27 @@ local valueLbl = Label({ Text = "", Font = F.medium, Size = 13, Pos = UDim2off(1
 local chev = Icon("chevdown", 15, "muted", field)
 chev.AnchorPoint = V2(1, 0.5)
 chev.Position = UDim2new(1, -11, 0.5, 0)
+local function fmt(f, v)
+if type(f) == "function" then
+local ok, r = pcall(f, v)
+if ok and r ~= nil then
+return tostring(r)
+end
+end
+return tostring(v)
+end
 local function display()
 local txt, has
 if el.Multi then
 has = #sel > 0
 local names = {}
 for i, x in ipairs(sel) do
-names[i] = tostring(x)
+names[i] = fmt(o.FormatDisplayValue, x)
 end
 txt = has and table.concat(names, ", ") or (o.Placeholder or "None")
 else
 has = el.Value ~= nil
-txt = has and tostring(el.Value) or (o.Placeholder or (o.Nullable and "---" or "Select…"))
+txt = has and fmt(o.FormatDisplayValue, el.Value) or (o.Placeholder or (o.Nullable and "---" or "Select…"))
 end
 valueLbl.Text = txt
 Reg[valueLbl].TextColor3 = has and "text" or "faint"
@@ -3158,7 +3174,7 @@ if o.Nullable and not el.Multi then
 table.insert(opts, { v = nil, label = "---" })
 end
 for _, v in ipairs(el.Options) do
-table.insert(opts, { v = v, label = tostring(v) })
+table.insert(opts, { v = v, label = fmt(o.FormatListValue or o.FormatDisplayValue, v) })
 end
 local searchable = o.Search or o.Searchable or #el.Options > 8
 local rows = math.min(#opts, 7)
@@ -3363,6 +3379,9 @@ display()
 end
 function el:Serialize()
 return el.Multi and table.clone(sel) or el.Value
+end
+function el:Display()
+display()
 end
 display()
 return self:_finish(el, o)
@@ -4601,6 +4620,8 @@ Tooltip = o.Tooltip,
 Disabled = o.Disabled,
 Visible = o.Visible,
 Callback = o.Callback,
+FormatDisplayValue = o.FormatDisplayValue,
+FormatListValue = o.FormatListValue,
 }
 local sec = lazySection(self)
 if not sec then
@@ -4722,7 +4743,7 @@ else
 text = idx
 idx = nil
 end
-local spec = { Color = "muted" }
+local spec = { Color = "muted", Rich = true }
 local sec = lazySection(self)
 local el
 if sec then
@@ -5368,7 +5389,9 @@ self.Unloaded = true
 for _, fn in ipairs(self._unloadFns or {}) do
 pcall(fn)
 end
+if GENV.__hh_ui_unload == self._hhUnload then
 GENV.__hh_ui_unload = nil
+end
 end
 do
 function Tab:Tabbox(o)
