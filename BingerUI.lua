@@ -569,8 +569,14 @@ end
 function Binger:_applyScale()
 local cam = workspace.CurrentCamera
 local vp = cam and cam.ViewportSize or V2(1920, 1080)
-local base = self.Touch and 560 or 900
-local s = math.clamp(vp.Y / base, 0.55, 2.2) * math.clamp(tonumber(self.Prefs.scale) or 1, 0.6, 1.6)
+local s
+if self.Touch then
+local size = V2(880, 570)
+s = math.clamp(math.min(vp.X * 0.6 / size.X, vp.Y * 0.72 / size.Y), 0.5, 2.2)
+else
+s = math.clamp(math.min(vp.Y / 900, vp.X * 0.85 / 880), 0.55, 2.2)
+end
+s *= math.clamp(tonumber(self.Prefs.scale) or 1, 0.6, 1.6)
 RootScale.Scale = s
 Root.Size = UDim2sc(1 / s, 1 / s)
 end
