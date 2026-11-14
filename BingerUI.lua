@@ -537,6 +537,75 @@ function Binger:SetAccent(which, color)
 self.Prefs[which] = color:ToHex()
 self:SetTheme(self.Prefs.theme, true)
 end
+function Binger:ExportLook()
+local P = self.Prefs
+local t = { v = 1, theme = P.theme, flat = P.flat == true }
+for _, k in ipairs(CUSTOM_KEYS) do
+if type(P[k]) == "string" then
+t[k] = P[k]
+end
+end
+t.img = tonumber(P.bgImage)
+if t.img and type(P.bgCrop) == "table" then
+t.crop = { tonumber(P.bgCrop.x) or 0.5, tonumber(P.bgCrop.y) or 0.5, tonumber(P.bgCrop.z) or 1 }
+end
+t.light = tonumber(P.bgImageLight)
+t.op = tonumber(P.opacity)
+if P.petals ~= nil then
+t.petals = P.petals == true
+end
+return "HHLOOK:" .. Svc.HttpService:JSONEncode(t)
+end
+function Binger:ImportLook(code)
+local json = tostring(code or ""):match("HHLOOK:%s*(%b{})")
+if not json then
+return false, "That is not a look code (it starts with HHLOOK:)."
+end
+local ok, t = pcall(Svc.HttpService.JSONDecode, Svc.HttpService, json)
+if not ok or type(t) ~= "table" then
+return false, "The code is damaged, copy it again."
+end
+local function num(v, lo, hi)
+v = tonumber(v)
+return (v and v == v and v >= lo and v <= hi) and v or nil
+end
+local P = self.Prefs
+local theme = P.theme
+for _, th in ipairs(THEMES) do
+if th.Id == t.theme then
+theme = th.Id
+end
+end
+for _, k in ipairs(CUSTOM_KEYS) do
+P[k] = type(t[k]) == "string" and t[k]:match("^#?(%x%x%x%x%x%x)$") or nil
+end
+P.flat = t.flat == true
+local img = num(t.img, 1, 1e16)
+P.bgImage = img and math.floor(img) or nil
+local c = type(t.crop) == "table" and t.crop or {}
+local cx, cy, cz = num(c[1], 0, 1), num(c[2], 0, 1), num(c[3], 1, 4)
+P.bgCrop = (P.bgImage and cx and cy and cz) and { x = cx, y = cy, z = cz } or nil
+P.bgImageLight = num(t.light, 0.1, 1) or P.bgImageLight
+P.opacity = num(t.op, 0, 0.4) or P.opacity
+if type(t.petals) == "boolean" and not self:IsLite() then
+P.petals = t.petals
+end
+self:SetTheme(theme, true)
+for _, w in ipairs(self.Windows or {}) do
+pcall(function()
+w.Main.BackgroundTransparency = tonumber(P.opacity) or 0.04
+end)
+pcall(w._bgImage, w)
+if P.petals ~= nil then
+pcall(w._petals, w, P.petals)
+end
+end
+for _, f in ipairs(self._lookHooks or {}) do
+task.spawn(pcall, f)
+end
+self:SavePrefs()
+return true
+end
 derive((Binger:_themeData()))
 local Gui = New("ScreenGui", {
 Name = "BingerUI",
@@ -4157,7 +4226,7 @@ if th.Id == P.theme then
 current = th.Name
 end
 end
-box:AddDropdown("ThemeManager_ThemeList", { Text = "Theme", Values = names, Default = current or names[1], Callback = function(v)
+local themeDd = box:AddDropdown("ThemeManager_ThemeList", { Text = "Theme", Values = names, Default = current or names[1], Callback = function(v)
 TM:ApplyTheme(v)
 end })
 local a1 = box:ColorPicker({ Name = "Accent", Default = T.accent, Callback = function(c)
@@ -4181,19 +4250,20 @@ end })
 local slC = box:ColorPicker({ Name = "Button second accent", Description = "Other end of the toggle and slider gradient.", Default = T.tgB, Callback = function(c)
 Binger:SetAccent("btnB", c)
 end })
-box:Toggle({ Name = "Gradients", Description = "Off: no gradients anywhere, every coloured part is one solid colour, and the moving background stops. Lighter on weak devices.", Default = not P.flat, Callback = function(v)
+local gradT = box:Toggle({ Name = "Gradients", Description = "Off: no gradients anywhere, every coloured part is one solid colour, and the moving background stops. Lighter on weak devices.", Default = not P.flat, Callback = function(v)
 if P.flat == not v then
 return
 end
 P.flat = not v
 Binger:SetTheme(P.theme, true)
 end })
-box:Input({ Name = "Background picture", Description = "Roblox image or decal id. Empty = none.", Default = P.bgImage and tostring(P.bgImage) or "", Placeholder = "image id", Callback = function(v)
+local imgIn = box:Input({ Name = "Background picture", Description = "Roblox image or decal id. Empty = none.", Default = P.bgImage and tostring(P.bgImage) or "", Placeholder = "image id", Callback = function(v)
 local id = tonumber((tostring(v):match("%d+")))
 local new = (id and id > 0) and id or nil
-if new ~= P.bgImage then
-P.bgCrop = nil
+if new == P.bgImage then
+return
 end
+P.bgCrop = nil
 P.bgImage = new
 if w then
 w:_bgImage()
@@ -4222,6 +4292,48 @@ end })
 box:Button({ Name = "Reset colours", Icon = "refresh", Callback = function()
 Binger:SetTheme(P.theme)
 end })
+box:Button({ Name = "Copy look code", Icon = "copy", Callback = function()
+local code = Binger:ExportLook()
+local copy = setclipboard or toclipboard or (syn and syn.write_clipboard)
+if copy and pcall(copy, code) then
+Binger:Notify({ Title = "Look code copied", Content = "Send it to a friend: they paste it below in any Hina Hub script.", Kind = "ok" })
+else
+Binger:Notify({ Title = "No clipboard", Content = "Your executor can't copy: the code is in the box below, copy it from there.", Kind = "warn" })
+pcall(function()
+Binger._lookIn:Set(code, true)
+end)
+end
+end })
+local lookIn = box:Input({ Name = "Look code", Description = "Paste a look code (HHLOOK:...) and press Apply.", Default = "", Placeholder = "HHLOOK:{...}" })
+Binger._lookIn = lookIn
+box:Button({ Name = "Apply look code", Icon = "check", Callback = function()
+local ok, err = Binger:ImportLook(lookIn.Value)
+Binger:Notify(ok and { Title = "Look applied", Content = "Theme, colours and picture are set.", Kind = "ok" } or { Title = "Look not applied", Content = err, Kind = "warn" })
+if ok then
+pcall(function()
+lookIn:Set("", true)
+end)
+end
+end })
+Binger._lookHooks = Binger._lookHooks or {}
+table.insert(Binger._lookHooks, function()
+for _, th in ipairs(THEMES) do
+if th.Id == P.theme then
+pcall(function()
+themeDd:Set(th.Name, true)
+end)
+end
+end
+pcall(function()
+gradT:Set(not P.flat, true)
+end)
+pcall(function()
+imgIn:Set(P.bgImage and tostring(P.bgImage) or "", true)
+end)
+pcall(function()
+picSlider:Set(math.floor((tonumber(P.bgImageLight) or 0.3) * 100 + 0.5), true)
+end)
+end)
 table.insert(Binger._themeHooks, function()
 a1:Set(T.accent, true)
 a2:Set(T.accent2, true)
@@ -5210,6 +5322,29 @@ L:SavePrefs()
 end })
 look:Button({ Name = "Reset colours", Icon = "refresh", Callback = function()
 L:SetTheme(P.theme)
+end })
+local lookIn
+look:Button({ Name = "Copy look code", Icon = "copy", Callback = function()
+local code = L:ExportLook()
+local copy = setclipboard or toclipboard or (syn and syn.write_clipboard)
+if copy and pcall(copy, code) then
+L:Notify({ Title = "Look code copied", Content = "Send it to a friend: they paste it below in any Hina Hub script.", Kind = "ok" })
+else
+L:Notify({ Title = "No clipboard", Content = "Your executor can't copy: the code is in the box below, copy it from there.", Kind = "warn" })
+pcall(function()
+lookIn:Set(code, true)
+end)
+end
+end })
+lookIn = look:Input({ Name = "Look code", Description = "Paste a look code (HHLOOK:...) and press Apply.", Default = "", Placeholder = "HHLOOK:{...}" })
+look:Button({ Name = "Apply look code", Icon = "check", Callback = function()
+local ok, err = L:ImportLook(lookIn.Value)
+L:Notify(ok and { Title = "Look applied", Content = "Theme, colours and picture are set.", Kind = "ok" } or { Title = "Look not applied", Content = err, Kind = "warn" })
+if ok then
+pcall(function()
+lookIn:Set("", true)
+end)
+end
 end })
 table.insert(L._themeHooks, function()
 ac1:Set(T.accent, true)
