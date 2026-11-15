@@ -1358,8 +1358,10 @@ local Foot = New("Frame", { Name = "Footer", BackgroundTransparency = 1, Positio
 New("Frame", { Size = UDim2new(1, 0, 0, 1), BorderSizePixel = 0, Theme = { BackgroundColor3 = "line" }, Parent = Foot })
 W.Foot = Foot
 local footText = o.Footer or (W.Title:sub(1, 1) .. W.Title:sub(2):lower() .. " UI")
-W.FootLeft = Label({ Text = footText, Size = 12, Color = "faint", Pos = UDim2off(18, 0), Dim = UDim2new(0.3, 0, 1, 0), Truncate = true, Parent = Foot })
-local footProbe = Label({ Text = footText, Size = 12, Dim = UDim2new(0, 0, 1, 0), Auto = AutoX, Parent = Foot })
+W.FootLeft = Label({ Text = footText, Size = 12, Font = F.medium, Color = "text", Pos = UDim2off(18, 0), Dim = UDim2new(0.3, 0, 1, 0), Truncate = true, Parent = Foot })
+W.FootLeft.TextStrokeColor3 = Color3.new(0, 0, 0)
+W.FootLeft.TextStrokeTransparency = 0.55
+local footProbe = Label({ Text = footText, Size = 12, Font = F.medium, Dim = UDim2new(0, 0, 1, 0), Auto = AutoX, Parent = Foot })
 footProbe.TextTransparency = 1
 W.Hint = Label({ Text = "", Size = 12, Color = "muted", AlignX = RIGHT, Anchor = V2(1, 0), Pos = UDim2new(1, -110, 0, 0), Dim = UDim2new(0, 0, 1, 0), Auto = AutoX, Parent = Foot })
 local footVer = Label({ Text = W.Version, Size = 12, Color = "faint", AlignX = RIGHT, Anchor = V2(1, 0), Pos = UDim2new(1, -40, 0, 0), Dim = UDim2new(0, 0, 1, 0), Auto = AutoX, Parent = Foot })
