@@ -2096,14 +2096,11 @@ Reg[lb].TextColor3 = function(t)
 return W.Current == tab and t.text or t.muted
 end
 Reg[ic].ImageColor3 = function(t)
-return t.navIcon or (W.Current == tab and t.accent or t.muted)
+return t.navIcon or t.accent
 end
 hover(btn, function()
 if W.Current ~= tab then
 tween(lb, { TextColor3 = T.text }, 0.15)
-if not T.navIcon then
-tween(ic, { ImageColor3 = T.text }, 0.15)
-end
 end
 end, function()
 refresh(lb, 0.2)
@@ -3253,7 +3250,7 @@ table.insert(opts, { v = v, label = fmt(o.FormatListValue or o.FormatDisplayValu
 end
 local searchable = o.Search or o.Searchable or #el.Options > 8
 local rows = math.min(#opts, 7)
-local height = rows * 32 + 10 + (searchable and 38 or 0)
+local height = rows * 32 + 10 + (searchable and 38 or 0) + (el.Multi and 34 or 0)
 local width = math.max(field.AbsoluteSize.X / W:_eff(), 170)
 local pop, p = W:_popup(field, width, height)
 open = true
@@ -3290,6 +3287,41 @@ Theme = { TextColor3 = "text", PlaceholderColor3 = "faint" },
 Parent = sf,
 })
 y = 43
+end
+local bulk
+if el.Multi then
+local bar = New("Frame", { BackgroundTransparency = 1, Position = UDim2off(5, y), Size = UDim2new(1, -10, 0, 28), ZIndex = 4, Parent = pop })
+local function bulkBtn(text, xs, fn)
+local b = New("TextButton", {
+Text = "",
+AutoButtonColor = false,
+Position = UDim2new(xs, xs > 0 and 3 or 0, 0, 0),
+Size = UDim2new(0.5, -3, 1, 0),
+BackgroundTransparency = 0.1,
+Theme = { BackgroundColor3 = "field" },
+ZIndex = 4,
+Parent = bar,
+})
+Corner(b, 7)
+Label({ Text = text, Font = F.semi, Size = 12, Color = "muted", Dim = UDim2new(1, 0, 1, 0), AlignX = Enum.TextXAlignment.Center, Z = 4, Parent = b })
+hover(b, function()
+tween(b, { BackgroundTransparency = 0 }, 0.12)
+end, function()
+tween(b, { BackgroundTransparency = 0.1 }, 0.18)
+end)
+b.MouseButton1Click:Connect(fn)
+end
+bulkBtn("All", 0, function()
+if bulk then
+bulk(true)
+end
+end)
+bulkBtn("None", 0.5, function()
+if bulk then
+bulk(false)
+end
+end)
+y += 34
 end
 local list = New("ScrollingFrame", {
 BackgroundTransparency = 1,
@@ -3378,6 +3410,25 @@ list.CanvasPosition = Vector2.zero
 more()
 end
 more()
+if el.Multi then
+function bulk(on)
+for _, op in ipairs(filtered) do
+local v = op.v
+if v ~= nil and not (el.DisabledValues and el.DisabledValues[v]) then
+local idx = table.find(sel, v)
+if on and not idx then
+table.insert(sel, v)
+elseif not on and idx then
+table.remove(sel, idx)
+end
+end
+end
+publish()
+display()
+reset()
+el:_fire(el.Value)
+end
+end
 list:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
 if shown < #filtered and list.CanvasPosition.Y + list.AbsoluteSize.Y > list.AbsoluteCanvasSize.Y - 64 * W:_eff() then
 more()
@@ -3405,11 +3456,6 @@ end
 end
 reset()
 end)
-end)
-task.defer(function()
-if sb.Parent then
-sb:CaptureFocus()
-end
 end)
 end
 end
@@ -4241,7 +4287,7 @@ end })
 local pnC = box:ColorPicker({ Name = "Panels", Default = T.surface, Callback = function(c)
 Binger:SetAccent("surface", c)
 end })
-local navC = box:ColorPicker({ Name = "Menu icons", Description = "One colour for every sidebar icon. Reset colours turns it off.", Default = T.navIcon or T.accent, Callback = function(c)
+local navC = box:ColorPicker({ Name = "Menu icons", Description = "One colour for every sidebar icon (Reset colours = the accent).", Default = T.navIcon or T.accent, Callback = function(c)
 Binger:SetAccent("navIcon", c)
 end })
 local tgC = box:ColorPicker({ Name = "Button accent", Description = "Toggles and sliders. With Gradients off they use only this colour.", Default = T.tgA, Callback = function(c)
@@ -5273,7 +5319,7 @@ end })
 local pnC = look:ColorPicker({ Name = "Panels", Default = T.surface, Callback = function(c)
 L:SetAccent("surface", c)
 end })
-local navC = look:ColorPicker({ Name = "Menu icons", Description = "One colour for every sidebar icon. Reset colours turns it off.", Default = T.navIcon or T.accent, Callback = function(c)
+local navC = look:ColorPicker({ Name = "Menu icons", Description = "One colour for every sidebar icon (Reset colours = the accent).", Default = T.navIcon or T.accent, Callback = function(c)
 L:SetAccent("navIcon", c)
 end })
 local tgC = look:ColorPicker({ Name = "Button accent", Description = "Toggles and sliders. With Gradients off they use only this colour.", Default = T.tgA, Callback = function(c)
