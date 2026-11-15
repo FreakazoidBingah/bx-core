@@ -131,6 +131,7 @@ return buffer.tostring(out)
 end
 end
 local BASE = "https://raw.githubusercontent.com/FreakazoidBingah/bx-core/main/"
+Binger._base = BASE
 local gca = getcustomasset or getsynasset
 if gca and FS.can then
 local missing = 0
@@ -555,6 +556,37 @@ if P.petals ~= nil then
 t.petals = P.petals == true
 end
 return "HHLOOK:" .. Svc.HttpService:JSONEncode(t)
+end
+function Binger:LookPresets(cb)
+if self._presets then
+return cb(self._presets)
+end
+self._presetWait = self._presetWait or {}
+table.insert(self._presetWait, cb)
+if self._presetBusy then
+return
+end
+self._presetBusy = true
+task.spawn(function()
+local list = {}
+if self._base then
+local ok, body = pcall(game.HttpGet, game, self._base .. "looks.json")
+local okJ, t = false, nil
+if ok and type(body) == "string" then
+okJ, t = pcall(Svc.HttpService.JSONDecode, Svc.HttpService, body)
+end
+for _, e in ipairs(okJ and type(t) == "table" and t or {}) do
+if type(e) == "table" and type(e.name) == "string" and type(e.code) == "string" and e.code:find("HHLOOK:", 1, true) then
+list[#list + 1] = { name = e.name:sub(1, 40), code = e.code }
+end
+end
+end
+self._presets = list
+for _, f in ipairs(self._presetWait) do
+pcall(f, list)
+end
+self._presetWait = nil
+end)
 end
 function Binger:ImportLook(code)
 local json = tostring(code or ""):match("HHLOOK:%s*(%b{})")
@@ -4272,9 +4304,32 @@ if th.Id == P.theme then
 current = th.Name
 end
 end
-local themeDd = box:AddDropdown("ThemeManager_ThemeList", { Text = "Theme", Values = names, Default = current or names[1], Callback = function(v)
-TM:ApplyTheme(v)
+local presetDd
+presetDd = box:Dropdown({ Name = "Preset looks", Description = "Ready-made looks: pick one to apply it.", Options = {}, Placeholder = "Pick a look", Callback = function(v)
+if not v then
+return
+end
+for _, e in ipairs(Binger._presets or {}) do
+if e.name == v then
+local ok, err = Binger:ImportLook(e.code)
+Binger:Notify(ok and { Title = "Look applied", Content = "“" .. v .. "” is set.", Kind = "ok" } or { Title = "Look not applied", Content = err, Kind = "warn" })
+end
+end
+task.defer(function()
+pcall(function()
+presetDd:Set(nil, true)
+end)
+end)
 end })
+Binger:LookPresets(function(list)
+local names = {}
+for _, e in ipairs(list) do
+names[#names + 1] = e.name
+end
+pcall(function()
+presetDd:Refresh(names)
+end)
+end)
 local a1 = box:ColorPicker({ Name = "Accent", Default = T.accent, Callback = function(c)
 Binger:SetAccent("accent", c)
 end })
@@ -4363,13 +4418,6 @@ end
 end })
 Binger._lookHooks = Binger._lookHooks or {}
 table.insert(Binger._lookHooks, function()
-for _, th in ipairs(THEMES) do
-if th.Id == P.theme then
-pcall(function()
-themeDd:Set(th.Name, true)
-end)
-end
-end
 pcall(function()
 gradT:Set(not P.flat, true)
 end)
@@ -5307,6 +5355,32 @@ W.PageSub.Text = tab.Subtitle
 end
 local look = tab:Section({ Name = "Theme", Icon = "palette", Side = "Left" })
 look:ThemePicker()
+local presetDd
+presetDd = look:Dropdown({ Name = "Preset looks", Description = "Ready-made looks: pick one to apply it.", Options = {}, Placeholder = "Pick a look", Callback = function(v)
+if not v then
+return
+end
+for _, e in ipairs(L._presets or {}) do
+if e.name == v then
+local ok, err = L:ImportLook(e.code)
+L:Notify(ok and { Title = "Look applied", Content = "“" .. v .. "” is set.", Kind = "ok" } or { Title = "Look not applied", Content = err, Kind = "warn" })
+end
+end
+task.defer(function()
+pcall(function()
+presetDd:Set(nil, true)
+end)
+end)
+end })
+L:LookPresets(function(list)
+local names = {}
+for _, e in ipairs(list) do
+names[#names + 1] = e.name
+end
+pcall(function()
+presetDd:Refresh(names)
+end)
+end)
 local ac1 = look:ColorPicker({ Name = "Accent", Default = T.accent, Callback = function(c)
 L:SetAccent("accent", c)
 end })

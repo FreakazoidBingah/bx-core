@@ -1,0 +1,38 @@
+[
+ {
+  "name": "Red Hearts",
+  "code": "HHLOOK:{\"surface\":\"000000\",\"navIcon\":\"f70600\",\"img\":7448956760,\"petals\":true,\"v\":1,\"crop\":[0.4342105463447981,0.5,1],\"btnA\":\"000000\",\"op\":0.04,\"light\":0.45,\"flat\":false,\"accent2\":\"ff0000\",\"theme\":\"crimson\",\"accent\":\"fa0000\"}"
+ },
+ {
+  "name": "Purple Eyes",
+  "code": "HHLOOK:{\"surface\":\"000000\",\"navIcon\":\"f900da\",\"img\":8942361531,\"petals\":true,\"v\":1,\"crop\":[0.4342105463447981,0.5,1],\"btnA\":\"000000\",\"op\":0.04,\"light\":0.15,\"flat\":false,\"accent2\":\"bd0dfd\",\"theme\":\"crimson\",\"accent\":\"ff02fa\"}"
+ },
+ {
+  "name": "Best Waifu",
+  "code": "HHLOOK:{\"surface\":\"000000\",\"btnB\":\"6b0468\",\"navIcon\":\"ea4985\",\"petals\":true,\"img\":12578283668,\"op\":0.04,\"v\":1,\"crop\":[0.28947369756319876,0.4240773711541687,1.5],\"btnA\":\"000000\",\"light\":0.5,\"bg\":\"2c0117\",\"flat\":false,\"accent2\":\"fd0d0e\",\"theme\":\"crimson\",\"accent\":\"f238e6\"}"
+ },
+ {
+  "name": "Goth....Obama??",
+  "code": "HHLOOK:{\"surface\":\"330606\",\"btnB\":\"6b0425\",\"navIcon\":\"a50102\",\"petals\":true,\"img\":4794470309,\"op\":0.04,\"v\":1,\"crop\":[0.5018568033860489,0.5,1],\"btnA\":\"000000\",\"light\":0.5,\"bg\":\"000000\",\"flat\":false,\"accent2\":\"1500ff\",\"theme\":\"crimson\",\"accent\":\"000000\"}"
+ },
+ {
+  "name": "Oh My Gahh!!",
+  "code": "HHLOOK:{\"surface\":\"554f02\",\"btnB\":\"852c00\",\"navIcon\":\"ffc701\",\"petals\":true,\"img\":12180474230,\"op\":0.04,\"v\":1,\"crop\":[0.4342105463447981,0.5,1],\"btnA\":\"c67041\",\"light\":0.5,\"bg\":\"000000\",\"flat\":false,\"accent2\":\"ffffff\",\"theme\":\"crimson\",\"accent\":\"823907\"}"
+ },
+ {
+  "name": "Himiko Toga",
+  "code": "HHLOOK:{\"surface\":\"381203\",\"btnB\":\"b28b06\",\"navIcon\":\"000000\",\"petals\":true,\"img\":102744668265350,\"op\":0.04,\"v\":1,\"crop\":[0.43686868385835128,0.5,1],\"btnA\":\"1e140f\",\"light\":0.5,\"bg\":\"000000\",\"flat\":false,\"accent2\":\"ffffff\",\"theme\":\"crimson\",\"accent\":\"ffbf00\"}"
+ },
+ {
+  "name": "Yappa Murin...",
+  "code": "HHLOOK:{\"surface\":\"011f17\",\"btnB\":\"00ffb3\",\"navIcon\":\"0af9dd\",\"petals\":true,\"img\":133444402976747,\"op\":0.04,\"v\":1,\"crop\":[0.4342105463447981,0.5,1],\"btnA\":\"e9e4e2\",\"light\":0.5,\"bg\":\"000000\",\"flat\":false,\"accent2\":\"ffffff\",\"theme\":\"crimson\",\"accent\":\"00fffd\"}"
+ },
+ {
+  "name": "John Rod (Aura)",
+  "code": "HHLOOK:{\"surface\":\"011f17\",\"btnB\":\"000000\",\"navIcon\":\"e5e5e5\",\"petals\":true,\"img\":139403350053031,\"op\":0.04,\"v\":1,\"crop\":[0.4342105463447981,0.5,1],\"btnA\":\"e9e4e2\",\"light\":1,\"bg\":\"000000\",\"flat\":false,\"accent2\":\"ffffff\",\"theme\":\"crimson\",\"accent\":\"000000\"}"
+ },
+ {
+  "name": "Albedo",
+  "code": "HHLOOK:{\"surface\":\"15011f\",\"btnB\":\"9003f8\",\"navIcon\":\"e5e5e5\",\"petals\":true,\"img\":5612782194,\"op\":0.04,\"v\":1,\"crop\":[0.4740047509020025,0.5,1],\"btnA\":\"080707\",\"light\":0.3,\"bg\":\"110019\",\"flat\":false,\"accent2\":\"430303\",\"theme\":\"crimson\",\"accent\":\"27023f\"}"
+ }
+]
