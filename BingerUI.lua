@@ -2997,7 +2997,7 @@ TextXAlignment = barStyle and CENTER or RIGHT,
 BackgroundTransparency = barStyle and 0.2 or 1,
 Text = "",
 LayoutOrder = 3,
-Theme = { TextColor3 = barStyle and "text" or "slA", BackgroundColor3 = "field" },
+Theme = { TextColor3 = "text", BackgroundColor3 = "field" },
 Parent = el.Inner,
 })
 if barStyle then
@@ -3045,7 +3045,7 @@ Size = UDim2new(1 / n, -6 * (n - 1) / n, 1, 0),
 LayoutOrder = i,
 Theme = {
 TextColor3 = function(t)
-return el.Value == pv and t.accent or t.muted
+return el.Value == pv and t.text or t.muted
 end,
 },
 Parent = pr,
@@ -3385,24 +3385,39 @@ Theme = { BackgroundColor3 = "hover" },
 Parent = list,
 })
 Corner(b, 7)
+Reg[b].BackgroundColor3 = function(t)
+return t.surface:Lerp(t.text, 0.16)
+end
+refresh(b)
 local lbl = Label({ Text = op.label, Font = F.medium, Size = 13, Pos = UDim2off(10, 0), Dim = UDim2new(1, -36, 1, 0), Truncate = true, Z = 4, Parent = b })
 local off = op.v ~= nil and el.DisabledValues and el.DisabledValues[op.v]
 Reg[lbl].TextColor3 = function(t)
 if op.v == nil or off then
 return t.faint
 end
-return isSel(op.v) and t.accent or t.text
+return t.text
 end
 refresh(lbl)
-local ck = Icon("check", 14, "accent", b)
+local ck = Icon("check", 14, "text", b)
 ck.AnchorPoint = V2(1, 0.5)
 ck.Position = UDim2new(1, -10, 0.5, 0)
 ck.ZIndex = 4
-ck.Visible = op.v ~= nil and isSel(op.v)
+local function paint(fade)
+local on = op.v ~= nil and isSel(op.v)
+ck.Visible = on
+lbl.FontFace = on and F.semi or F.medium
+local tr = on and 0.25 or 1
+if fade then
+tween(b, { BackgroundTransparency = tr }, 0.15)
+else
+b.BackgroundTransparency = tr
+end
+end
+paint()
 hover(b, function()
-tween(b, { BackgroundTransparency = 0.35 }, 0.12)
+tween(b, { BackgroundTransparency = op.v ~= nil and isSel(op.v) and 0.15 or 0.5 }, 0.12)
 end, function()
-tween(b, { BackgroundTransparency = 1 }, 0.18)
+paint(true)
 end)
 b.MouseButton1Click:Connect(function()
 if off then
@@ -3416,7 +3431,7 @@ else
 table.insert(sel, op.v)
 end
 publish()
-ck.Visible = idx == nil
+paint(true)
 refresh(lbl, 0.15)
 display()
 el:_fire(el.Value)
@@ -4103,7 +4118,7 @@ local el = Element.new(self, o, "Progress")
 local max = o.Max or 100
 el.Value = math.clamp(o.Value or o.Default or 0, 0, max)
 self:_base(el, o, { right = UDim.new(0, 70), gap = 8 })
-local val = Label({ Text = "", Font = F.bold, Size = 13, Color = "accent", AlignX = RIGHT, Dim = UDim2off(70, 20), Order = 3, Parent = el.Inner })
+local val = Label({ Text = "", Font = F.bold, Size = 13, Color = "text", AlignX = RIGHT, Dim = UDim2off(70, 20), Order = 3, Parent = el.Inner })
 local track = New("Frame", { Size = UDim2new(1, 0, 0, 8), LayoutOrder = 2, Theme = { BackgroundColor3 = "line" }, Parent = el.Stack })
 Corner(track, 4)
 local fill = New("Frame", { Size = UDim2sc(el.Value / max, 1), BackgroundColor3 = Color3.new(1, 1, 1), Parent = track })
