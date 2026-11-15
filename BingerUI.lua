@@ -2132,6 +2132,8 @@ end
 Reg[ic].ImageColor3 = function(t)
 return t.navIcon or t.accent
 end
+ic.ImageColor3 = T.navIcon or T.accent
+lb.TextColor3 = W.Current == tab and T.text or T.muted
 hover(btn, function()
 if W.Current ~= tab then
 tween(lb, { TextColor3 = T.text }, 0.15)
