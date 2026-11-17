@@ -5183,6 +5183,7 @@ self._wmConn:Disconnect()
 self._wmConn = nil
 end
 if not on then
+self:SavePrefs()
 return
 end
 local w = New("Frame", {
