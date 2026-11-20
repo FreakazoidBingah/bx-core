@@ -550,6 +550,9 @@ t.img = tonumber(P.bgImage)
 if t.img and type(P.bgCrop) == "table" then
 t.crop = { tonumber(P.bgCrop.x) or 0.5, tonumber(P.bgCrop.y) or 0.5, tonumber(P.bgCrop.z) or 1 }
 end
+if t.img and type(P.bgPlace) == "table" then
+t.place = { tonumber(P.bgPlace.x) or 0.5, tonumber(P.bgPlace.y) or 0.5, tonumber(P.bgPlace.s) or 1 }
+end
 t.light = tonumber(P.bgImageLight)
 t.op = tonumber(P.opacity)
 if P.petals ~= nil then
@@ -617,6 +620,9 @@ P.bgImage = img and math.floor(img) or nil
 local c = type(t.crop) == "table" and t.crop or {}
 local cx, cy, cz = num(c[1], 0, 1), num(c[2], 0, 1), num(c[3], 1, 4)
 P.bgCrop = (P.bgImage and cx and cy and cz) and { x = cx, y = cy, z = cz } or nil
+local pl = type(t.place) == "table" and t.place or {}
+local px, py, ps = num(pl[1], -1, 2), num(pl[2], -1, 2), num(pl[3], 0.2, 2)
+P.bgPlace = (P.bgImage and px and py and ps) and { x = px, y = py, s = ps } or nil
 P.bgImageLight = num(t.light, 0.1, 1) or P.bgImageLight
 P.opacity = num(t.op, 0, 0.4) or P.opacity
 if type(t.petals) == "boolean" and not self:IsLite() then
@@ -1102,7 +1108,8 @@ end
 end
 aurora("accent2", 28, 62, 0.74, 15)
 aurora("accent", 208, 242, 0.86, 21)
-W.BgImage = New("ImageLabel", { Name = "BgImage", BackgroundTransparency = 1, Size = UDim2sc(1, 1), ScaleType = Enum.ScaleType.Stretch, Visible = false, Parent = Main })
+local BgClip = New("Frame", { Name = "BgClip", BackgroundTransparency = 1, ClipsDescendants = true, Size = UDim2sc(1, 1), Parent = Main })
+W.BgImage = New("ImageLabel", { Name = "BgImage", BackgroundTransparency = 1, Size = UDim2sc(1, 1), ScaleType = Enum.ScaleType.Stretch, Visible = false, Parent = BgClip })
 Main:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 if W.BgImage.Visible then
 W:_bgImage()
@@ -1611,6 +1618,15 @@ local cy = math.clamp((tonumber(crop.y) or 0.5) * THUMB_H, rh / 2, THUMB_H - rh 
 return cx - rw / 2, cy - rh / 2, rw, rh
 end
 Window._cropRect = cropRect
+local function clampPlace(x, y, sz)
+sz = math.clamp(tonumber(sz) or 1, 0.2, 2)
+local m = sz / 2 - 0.1
+return math.clamp(tonumber(x) or 0.5, -m, 1 + m), math.clamp(tonumber(y) or 0.5, -m, 1 + m), sz
+end
+local function placeOf(P)
+local q = type(P.bgPlace) == "table" and P.bgPlace or {}
+return clampPlace(q.x, q.y, q.s)
+end
 function Window:_bgImage()
 local P = self.Lib.Prefs
 local id = tonumber(P.bgImage)
@@ -1624,6 +1640,8 @@ local s = self.Main.AbsoluteSize
 local x, y, w, h = cropRect(P.bgCrop, s.Y > 0 and s.X / s.Y or 1.6)
 img.ImageRectOffset, img.ImageRectSize = V2(x, y), V2(w, h)
 img.ImageTransparency = 1 - math.clamp(tonumber(P.bgImageLight) or 0.3, 0.05, 1)
+local px, py, sz = placeOf(P)
+img.AnchorPoint, img.Position, img.Size = V2(0.5, 0.5), UDim2sc(px, py), UDim2sc(sz, sz)
 img.Visible = true
 else
 img.Visible = false
@@ -1645,6 +1663,20 @@ crop.x, crop.y, crop.z = tonumber(P.bgCrop.x) or 0.5, tonumber(P.bgCrop.y) or 0.
 end
 local PW, PH = 352, 198
 local frame, lit
+local place = { x = 0.5, y = 0.5, s = 1 }
+place.x, place.y, place.s = placeOf(P)
+local pbox, prect
+local function paintPlace()
+if not (pbox and prect) then
+return
+end
+place.x, place.y, place.s = clampPlace(place.x, place.y, place.s)
+prect.Position, prect.Size = UDim2sc(place.x, place.y), UDim2sc(place.s, place.s)
+local img = W.BgImage
+if img then
+img.Position, img.Size = UDim2sc(place.x, place.y), UDim2sc(place.s, place.s)
+end
+end
 local function paint()
 if not frame then
 return
@@ -1655,6 +1687,10 @@ crop.x, crop.y = (x + w / 2) / THUMB_W, (y + h / 2) / THUMB_H
 frame.Position = UDim2off(x / THUMB_W * PW, y / THUMB_H * PH)
 frame.Size = UDim2off(w / THUMB_W * PW, h / THUMB_H * PH)
 lit.ImageRectOffset, lit.ImageRectSize = V2(x, y), V2(w, h)
+if prect then
+prect.ImageRectOffset, prect.ImageRectSize = V2(x, y), V2(w, h)
+end
+paintPlace()
 end
 W:Dialog({
 Title = "Adjust picture",
@@ -1684,22 +1720,53 @@ paint()
 end)
 end)
 Label({ Text = "Drag the frame to pick the part of the picture the menu shows.", Size = 12, Color = "muted", Dim = UDim2new(1, 0, 0, 0), Auto = AutoY, Wrap = true, Order = 2, Z = 12, Parent = holder })
+local ms = W.Main.AbsoluteSize
+local BW = 240
+local BH = math.floor(BW / math.max(ms.Y > 0 and ms.X / ms.Y or 1.6, 0.5) + 0.5)
+pbox = New("Frame", { Size = UDim2off(BW, BH), Theme = { BackgroundColor3 = "field" }, ClipsDescendants = true, LayoutOrder = 3, ZIndex = 12, Parent = holder })
+Corner(pbox, 8)
+prect = New("ImageButton", { AutoButtonColor = false, BackgroundTransparency = 1, Image = src, AnchorPoint = V2(0.5, 0.5), ZIndex = 13, Parent = pbox })
+local st2 = Stroke(prect, "white", 0, 2)
+st2.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+prect.InputBegan:Connect(function(input)
+if not (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+return
+end
+local start = L:_pointer(input)
+local x0, y0 = place.x, place.y
+local bs = pbox.AbsoluteSize
+L:_beginDrag(input, function(p)
+local d = p - start
+place.x = x0 + d.X / math.max(bs.X, 1)
+place.y = y0 + d.Y / math.max(bs.Y, 1)
+paintPlace()
+end)
+end)
+Label({ Text = "Drag the picture anywhere, even past the edge. Picture size makes it smaller or bigger.", Size = 12, Color = "muted", Dim = UDim2new(1, 0, 0, 0), Auto = AutoY, Wrap = true, Order = 4, Z = 12, Parent = holder })
 end,
 Build = function(c)
 c:Slider({ Name = "Zoom", Min = 100, Max = 400, Step = 5, Default = math.floor(crop.z * 100 + 0.5), Suffix = "%", Callback = function(v)
 crop.z = v / 100
 paint()
 end })
+c:Slider({ Name = "Picture size", Min = 20, Max = 200, Step = 5, Default = math.floor(place.s * 100 + 0.5), Suffix = "%", Callback = function(v)
+place.s = v / 100
+paintPlace()
+end })
 end,
 Buttons = {
 { Name = "Reset", Callback = function()
-P.bgCrop = nil
+P.bgCrop, P.bgPlace = nil, nil
 W:_bgImage()
 L:SavePrefs()
 end },
-{ Name = "Cancel" },
+{ Name = "Cancel", Callback = function()
+W:_bgImage()
+end },
 { Name = "Apply", Style = "primary", Callback = function()
 P.bgCrop = { x = crop.x, y = crop.y, z = crop.z }
+local moved = place.s ~= 1 or math.abs(place.x - 0.5) > 0.001 or math.abs(place.y - 0.5) > 0.001
+P.bgPlace = moved and { x = place.x, y = place.y, s = place.s } or nil
 W:_bgImage()
 L:SavePrefs()
 end },
@@ -4383,7 +4450,7 @@ local new = (id and id > 0) and id or nil
 if new == P.bgImage then
 return
 end
-P.bgCrop = nil
+P.bgCrop, P.bgPlace = nil, nil
 P.bgImage = new
 if w then
 w:_bgImage()
@@ -5433,7 +5500,7 @@ look:Input({ Name = "Background picture", Description = "Roblox image or decal i
 local id = tonumber((tostring(v):match("%d+")))
 local new = (id and id > 0) and id or nil
 if new ~= P.bgImage then
-P.bgCrop = nil
+P.bgCrop, P.bgPlace = nil, nil
 end
 P.bgImage = new
 if W then
