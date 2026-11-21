@@ -471,6 +471,25 @@ Binger.Prefs[k] = v
 end
 end
 end
+do
+local toggleBind
+setmetatable(Binger, {
+__index = function(_, k)
+if k == "ToggleKeybind" then
+return toggleBind
+end
+end,
+__newindex = function(t, k, v)
+if k ~= "ToggleKeybind" then
+return rawset(t, k, v)
+end
+toggleBind = v
+if type(v) == "table" and type(v.Set) == "function" and t.Prefs.key then
+pcall(v.Set, v, t.Prefs.key, true)
+end
+end,
+})
+end
 local prefToken = 0
 Binger.Touch = Svc.UserInputService.TouchEnabled and not Svc.UserInputService.KeyboardEnabled
 function Binger:IsLite()
@@ -3798,6 +3817,10 @@ paint()
 if Binger.ToggleKeybind == el then
 for _, w in ipairs(Binger.Windows) do
 w:SetToggleKey(el.Key)
+end
+if not silent and el.Key then
+Binger.Prefs.key = el.Value
+Binger:SavePrefs()
 end
 end
 if o.Changed and not silent then
