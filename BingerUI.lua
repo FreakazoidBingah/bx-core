@@ -1226,11 +1226,23 @@ local userL = Label({ Text = "@" .. mask(LP.Name, 5, 10), Size = 11, Color = "mu
 table.insert(W._wideOnly, nameL)
 table.insert(W._wideOnly, userL)
 local shown = false
+local stA, stB
+local function hidden()
+if stA then return stA, stB or "" end
+return mask(LP.DisplayName, 6, 12), "@" .. mask(LP.Name, 5, 10)
+end
+function W:SetCardStatus(a, b)
+stA, stB = a and tostring(a) or nil, b and tostring(b) or nil
+if not shown then nameL.Text, userL.Text = hidden() end
+end
 Card.MouseButton1Click:Connect(function()
 shown = not shown
 nameL.TextTransparency, userL.TextTransparency = 1, 1
-nameL.Text = shown and LP.DisplayName or mask(LP.DisplayName, 6, 12)
-userL.Text = "@" .. (shown and LP.Name or mask(LP.Name, 5, 10))
+if shown then
+nameL.Text, userL.Text = LP.DisplayName, "@" .. LP.Name
+else
+nameL.Text, userL.Text = hidden()
+end
 tween(nameL, { TextTransparency = 0 }, 0.25)
 tween(userL, { TextTransparency = 0 }, 0.3)
 end)
